@@ -460,7 +460,7 @@ def _select_optimal_move( values, offsets, afterstate_dict ):
     # receives an array of values for leaves of the 2-ply search and
     # selects the action which maximizes the expected value
 
-    afterstates = list(afterstates_dict)
+    afterstates = list(afterstate_dict)
     move_expected_values = np.zeros( len(afterstates), np.float64 )
     
     for m in prange(len(afterstates)):

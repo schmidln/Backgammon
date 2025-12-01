@@ -173,7 +173,7 @@ def _apply_move(state, player, move_sequence):
     # the state.
     current_state = state.copy()
     
-    for from_point, roll in decode_move(move_sequence):
+    for from_point, roll in move_sequence:
         to_point = _get_target_index( from_point, roll, player)
         result_state = _apply_sub_move(current_state, player, from_point, to_point)
         # This should not fail if the sequence came from get_valid_moves

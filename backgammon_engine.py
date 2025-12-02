@@ -358,7 +358,7 @@ def _to_canonical(state, player):
     canonical_state[W_OFF] = -state[B_OFF]
     canonical_state[B_OFF] = -state[W_OFF]
 
-    for i in range(1, NUM_POINTS + 1):
+    for i in range(0, NUM_POINTS + 2):
         canonical_state[i] = -state[ NUM_POINTS + 1 - i ]
 
     return canonical_state
@@ -382,7 +382,7 @@ def _vectorized_roll_dice(num_games):
     for i in prange(num_games):
         d1 = rolls[i,0]
         d2 = rolls[i,1]
-        if d2 >= d2:
+        if d1 >= d2:
             sorted_dice[i,0] = d1
             sorted_dice[i,1] = d2
         else:

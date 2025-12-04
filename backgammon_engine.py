@@ -183,6 +183,40 @@ def _apply_move(state, player, move_sequence):
     return current_state
 
 @njit
+def _reward(state, player):
+    if state[W_OFF] == NUM_CHECKERS:
+        # white has won
+        if state[B_OFF] < 0:
+            # if the losing player has borne off at least one checker,
+            # he loses only one point
+            return player
+        else:
+            # if the loser has not borne off any of his checkers, he is
+            # gammoned and loses two points
+            #
+            # if the loser has not borne off any of his checkers and still has
+            # a checker on the bar or in the winner's home board, he is
+            # backgammoned and loses three points
+            if state[B_BAR] < 0:
+                return 3*player
+            for p in range(1,HOME_BOARD_SIZE+1):
+                if state[p] < 0:
+                    return 3*player
+            return 2*player
+    if state[B_OFF] == NUM_CHECKERS:
+        # black has won
+        if state[W_OFF] > 0:
+            return -player
+        else:
+            if state[W_BAR] > 0:
+                return -3*player
+            for p in range(3*HOME_BOARD_SIZE+1,NUM_POINTS+1):
+                if state[p] > 0:
+                    return -3*player
+            return -2*player
+    return 0
+
+@njit
 def _actions(state, current_player, dice):
     # Generates an exhaustive list of all legal move sequences for the
     # current player for the given dice. Returns a numba list of moves

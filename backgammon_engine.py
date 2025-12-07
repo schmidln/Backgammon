@@ -288,10 +288,13 @@ def _state_to_tuple(a):
     # lmk! not only is this ugly, it generates a
     # "NumbaTypeSafetyWarning: unsafe cast from UniTuple(int64 x 28)
     # to UniTuple(int8 x 28). Precision may be lost."
-    return (a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8],
-            a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16],
-            a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24],
-            a[25], a[26], a[27])
+    return ( int8(a[0]), int8(a[1]), int8(a[2]), int8(a[3]),
+             int8(a[4]), int8(a[5]), int8(a[6]), int8(a[7]),
+             int8(a[8]), int8(a[9]), int8(a[10]), int8(a[11]),
+             int8(a[12]), int8(a[13]), int8(a[14]), int8(a[15]),
+             int8(a[16]), int8(a[17]), int8(a[18]), int8(a[19]),
+             int8(a[20]), int8(a[21]), int8(a[22]), int8(a[23]),
+             int8(a[24]), int8(a[25]), int8(a[26]), int8(a[27]) )
 
 @njit
 def _unique_afterstates(moves, afterstates):

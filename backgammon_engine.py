@@ -91,8 +91,8 @@ def _get_target_index(start_index, roll, player):
     if 1 <= target <= NUM_POINTS:
         return target
     if target <= 0:
-        return W_OFF
-    return B_OFF
+        return B_OFF
+    return W_OFF
 
 @njit
 def _is_move_legal(state, player, from_point, to_point):
@@ -121,7 +121,7 @@ def _is_move_legal(state, player, from_point, to_point):
         off_target = W_OFF if player == 1 else B_OFF
         if to_point != off_target:
             return False
-        if _can_bear_off(state, player):
+        if not _can_bear_off(state, player):
             return False
         if player == 1:
             for i in range( NUM_POINTS - HOME_BOARD_SIZE + 1,

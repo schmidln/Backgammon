@@ -2,14 +2,21 @@
 
 A backgammon-playing agent using a deep residual convolutional neural network trained with TD(λ) and eligibility traces.
 
+
+
 ## Author
 
 **Lucas Schmidt** (schmidln)  
 Boston College  
+- GitHub: [schmidln](https://github.com/schmidln)
+- LinkedIn: [Lucas Schmidt](https://www.linkedin.com/in/lucasschmidt33/)
+
 CS Course: Reinforcement Learning  
 December 2025
 
 Developed as part of the final project for Professor McTague's Reinforcement Learning course.
+
+
 
 ## Performance
 

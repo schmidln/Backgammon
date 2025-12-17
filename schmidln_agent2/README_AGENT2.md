@@ -7,9 +7,9 @@ A backgammon-playing agent using a deep residual convolutional neural network tr
 ## Author
 
 **Lucas Schmidt** (schmidln)  
-Boston College  
-- GitHub: [schmidln](https://github.com/schmidln)
-- LinkedIn: [Lucas Schmidt](https://www.linkedin.com/in/lucasschmidt33/)
+Boston College Student (2026) 
+GitHub: [schmidln](https://github.com/schmidln)
+LinkedIn: [Lucas Schmidt](https://www.linkedin.com/in/lucasschmidt33/)
 
 CS Course: Reinforcement Learning  
 December 2025

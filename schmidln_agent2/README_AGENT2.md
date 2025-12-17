@@ -2,6 +2,15 @@
 
 A backgammon-playing agent using a deep residual convolutional neural network trained with TD(λ) and eligibility traces.
 
+## Author
+
+**Lucas Schmidt** (schmidln)  
+Boston College  
+CS Course: Reinforcement Learning  
+December 2025
+
+Developed as part of the final project for Professor McTague's Reinforcement Learning course.
+
 ## Performance
 
 - **Win Rate vs Random**: 95-96% with 2-ply search
@@ -124,13 +133,4 @@ python agent2_train_1ply.py --games 5000 --load agent2_trained_weights.pt --save
 - The `backgammon_engine.py` file must be in the parent directory
 - 2-ply search is slow (~0.01 games/sec) but produces stronger play
 - Training was performed on NVIDIA A100 GPUs via NSF ACCESS Delta
-
-## Author
-
-**Lucas Schmidt** (schmidln)  
-Boston College  
-CS Course: Reinforcement Learning  
-December 2025
-
-Developed as part of the final project for Professor McTague's Reinforcement Learning course.
 

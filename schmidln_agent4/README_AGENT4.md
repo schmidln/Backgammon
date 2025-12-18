@@ -6,6 +6,18 @@ This agent implements **Stochastic MuZero**, a model-based reinforcement learnin
 
 Based on: *Antonoglou, Schrittwieser, Ozair, Hubert, Silver (2022) - "Planning in Stochastic Environments with a Learned Model"*
 
+## Author
+
+**Lucas Schmidt** (schmidln)  
+Boston College Student (2026)  
+GitHub: [schmidln](https://github.com/schmidln)  
+LinkedIn: [Lucas Schmidt](https://www.linkedin.com/in/lucasschmidt33/)  
+
+CS Course: Reinforcement Learning  
+December 2025
+
+Developed as part of the final project for Professor McTague's Reinforcement Learning course.
+
 ## Architecture
 
 ### Neural Network Components

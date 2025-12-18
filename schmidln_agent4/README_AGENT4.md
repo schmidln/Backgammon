@@ -143,7 +143,7 @@ Average reward: 0.22
 For reference:
 
 - Current training: 500 games
-- Recommended minimum: 5,000-10,000 games
+- Ideal minimum: 5,000-10,000 games
 - AlphaZero/MuZero papers: 100,000+ games
 
 The 50% win rate against random reflects this limited training. With more training time, the agent should:
@@ -152,10 +152,10 @@ The 50% win rate against random reflects this limited training. With more traini
 - Learn basic backgammon strategy (building points, hitting blots)
 - Develop endgame bearing-off efficiency
 
-### Recommended Training for Strong Agent
+### Ideal Future Training for Strong Agent
 
 ```bash
-# Overnight training (~8-10 hours)
+# Overnight trainings (+10 Hours)
 PYTHONPATH=.. python agent4_train.py \
     --iterations 1000 \
     --games-per-iter 50 \

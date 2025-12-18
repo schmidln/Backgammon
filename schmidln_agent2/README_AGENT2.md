@@ -32,6 +32,7 @@ Developed as part of the final project for Professor McTague's Reinforcement Lea
 | `agent2_eval_2ply.py` | Agent implementation with both 1-ply and 2-ply search methods |
 | `agent2_evaluate.py` | Evaluation script to test agent against random opponent |
 | `agent2_trained_weights.pt` | Pre-trained model weights (~9,000 games) |
+| `README_AGENT2` | This file |
 
 ## Architecture
 

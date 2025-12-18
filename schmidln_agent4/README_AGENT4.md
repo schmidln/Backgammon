@@ -64,7 +64,7 @@ For each move decision:
 | `agent4_mcts.py` | Monte Carlo Tree Search with chance nodes |
 | `agent4_train.py` | Self-play training loop with replay buffer |
 | `agent4_evaluate.py` | Evaluation against random opponent |
-| `README.md` | This file |
+| `README_AGENT4.md` | This file |
 
 ## Requirements
 

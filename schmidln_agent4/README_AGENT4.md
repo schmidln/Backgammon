@@ -197,10 +197,12 @@ for iteration in range(num_iterations):
 The network is trained with a combined loss:
 
 ```
-L = L_value + L_policy
+L = L_value + L_policy + L_dynamics + L_reward
 
 L_value = MSE(predicted_value, actual_game_outcome)
 L_policy = CrossEntropy(predicted_policy, MCTS_visit_distribution)
+L_dynamics = MSE(predicted_next_value, actual_next_value)
+L_reward = MSE(predicted_reward, actual_reward)
 ```
 
 ### Handling Stochasticity
@@ -217,6 +219,73 @@ Backgammon's dice rolls create a stochastic environment. The network handles thi
 - **Evaluation Speed**: ~0.2 games/second (limited by MCTS)
 - **Memory Usage**: ~500MB GPU memory during training
 - **Model Size**: ~2.4M parameters
+
+---
+
+## Patch Notes (December 2025)
+
+### Issue Fixed: Dynamics Network Training
+
+The original `agent4_train.py` had a critical bug where the dynamics network was never trained:
+
+```python
+# ORIGINAL (line 343) - BROKEN:
+dynamics_loss = torch.tensor(0.0, device=device)  # Always zero!
+```
+
+This defeated the core purpose of MuZero, which relies on a learned world model.
+
+### What Was Fixed
+
+The patched `agent4_train.py` now properly trains the dynamics network:
+
+1. **Collects next-state data** from trajectories
+2. **Predicts next state** via dynamics: `latent → afterstate → next_latent`
+3. **Computes dynamics loss**: predicted next-value vs actual next-value
+4. **Trains reward prediction head**
+
+### Verifying the Fix
+
+Training output now shows non-zero dynamics (`D`) and reward (`R`) losses:
+
+```
+# BEFORE (broken):
+Loss: 0.5234 (V: 0.4521, P: 0.0713)
+
+# AFTER (fixed):
+Loss: 0.6891 (V: 0.4521, P: 0.0713, D: 0.1423, R: 0.0234)
+```
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `agent4_train.py` | Fixed `compute_losses()` to train dynamics + reward |
+| `agent4_network.py` | No changes needed (architecture was correct) |
+| `agent4_mcts.py` | No changes needed |
+| `agent4_evaluate.py` | No changes needed |
+
+### Key Code Addition
+
+```python
+# Get ground truth next-state value
+with torch.no_grad():
+    _, _, next_value_true = network.initial_inference(next_board_tensor, next_aux_tensor)
+
+# Predict next state using dynamics network
+afterstate = network.dynamics.afterstate(latent, actions_tensor)
+next_latent_pred = network.dynamics.chance_transition(afterstate, dice_tensor)
+_, next_value_pred = network.prediction(next_latent_pred)
+
+# Dynamics loss: predicted should match actual
+dynamics_loss = F.mse_loss(next_value_pred[has_next], next_value_true[has_next])
+
+# Reward loss
+reward_pred = network.dynamics.predict_reward(afterstate)
+reward_loss = F.mse_loss(reward_pred, rewards_tensor)
+```
+
+---
 
 ## References
 

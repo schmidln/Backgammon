@@ -31,6 +31,7 @@ Developed as part of the final project for Professor McTague's Reinforcement Lea
 | `agent2_train_1ply.py` | Training script using 1-ply search for speed (~1.4 games/sec) |
 | `agent2_eval_2ply.py` | Agent implementation with both 1-ply and 2-ply search methods |
 | `agent2_evaluate.py` | Evaluation script to test agent against random opponent |
+| `tournament.py` | Tournament script to compare checkpoints head-to-head or evaluate all against random |
 | `agent2_trained_weights.pt` | Pre-trained model weights (~9,000 games) |
 | `README_AGENT2` | This file |
 

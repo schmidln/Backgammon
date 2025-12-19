@@ -1,10 +1,15 @@
 """
-Agent 4: Stochastic MuZero Training
+Agent 4: Stochastic MuZero Training (PATCHED)
 
 Training loop for Stochastic MuZero agent using:
 1. Self-play to generate game trajectories
 2. MCTS for move selection during self-play
 3. Combined loss for value, policy, and dynamics networks
+
+PATCH NOTES:
+- Fixed compute_losses() to actually train the dynamics network
+- Added reward prediction training
+- dynamics_loss is now computed instead of being set to 0.0
 
 Reference: Antonoglou-Schrittwieser-Ozair-Hubert-Silver 2022
 """
@@ -60,6 +65,7 @@ class TrainingConfig:
     value_loss_weight: float = 1.0
     policy_loss_weight: float = 1.0
     dynamics_loss_weight: float = 0.5
+    reward_loss_weight: float = 0.5  # ADDED: weight for reward prediction
     
     # Unrolling
     num_unroll_steps: int = 5  # How many steps to unroll dynamics
@@ -247,7 +253,7 @@ def compute_value_targets(trajectory: GameTrajectory,
 
 
 # =============================================================================
-# LOSS FUNCTIONS
+# LOSS FUNCTIONS (PATCHED - this is the key fix)
 # =============================================================================
 
 def compute_losses(network: StochasticMuZeroNetwork, batch: List[Dict],
@@ -258,16 +264,20 @@ def compute_losses(network: StochasticMuZeroNetwork, batch: List[Dict],
     Losses:
     1. Value loss: MSE between predicted and target values
     2. Policy loss: Cross-entropy between predicted and MCTS policies
-    3. Dynamics loss: Prediction error for dynamics network
+    3. Dynamics loss: Prediction error for dynamics network (NOW IMPLEMENTED!)
+    4. Reward loss: Prediction error for reward head (NEW!)
     """
     batch_size = len(batch)
     
     # Prepare batch data
     states = []
+    next_states = []  # ADDED: for dynamics training
     target_values = []
     target_policies = []
     actions = []
     dice_indices = []
+    rewards = []  # ADDED: for reward prediction
+    has_next = []  # ADDED: track which samples have a next state
     
     for sample in batch:
         state = sample['state']
@@ -310,50 +320,108 @@ def compute_losses(network: StochasticMuZeroNetwork, batch: List[Dict],
         # Dice roll index
         dice = sample['dice']
         dice_indices.append(dice_roll_to_index(dice[0], dice[1]))
+        
+        # Reward at this step
+        rewards.append(sample['reward'])
+        
+        # ADDED: Get next state for dynamics training
+        next_pos = pos + 1
+        if next_pos < len(trajectory.states):
+            next_state = trajectory.states[next_pos]
+            next_player = trajectory.players[next_pos]
+            next_canonical = _to_canonical(next_state, next_player)
+            next_states.append(next_canonical)
+            has_next.append(True)
+        else:
+            # No next state (terminal) - use current state as placeholder
+            next_states.append(canonical)
+            has_next.append(False)
     
     # Encode states
     board_features, aux_features = encode_board_features_batch(states)
+    next_board_features, next_aux_features = encode_board_features_batch(next_states)
     
     # To tensors
     board_tensor = torch.tensor(board_features, dtype=torch.float32, device=device)
     aux_tensor = torch.tensor(aux_features, dtype=torch.float32, device=device)
-    target_values = torch.tensor(target_values, dtype=torch.float32, device=device).unsqueeze(1)
-    target_policies = torch.tensor(np.array(target_policies), dtype=torch.float32, device=device)
+    next_board_tensor = torch.tensor(next_board_features, dtype=torch.float32, device=device)
+    next_aux_tensor = torch.tensor(next_aux_features, dtype=torch.float32, device=device)
+    
+    target_values_t = torch.tensor(target_values, dtype=torch.float32, device=device).unsqueeze(1)
+    target_policies_t = torch.tensor(np.array(target_policies), dtype=torch.float32, device=device)
     actions_tensor = torch.tensor(actions, dtype=torch.long, device=device)
     dice_tensor = torch.tensor(dice_indices, dtype=torch.long, device=device)
+    rewards_tensor = torch.tensor(rewards, dtype=torch.float32, device=device).unsqueeze(1)
+    has_next_tensor = torch.tensor(has_next, dtype=torch.bool, device=device)
     
-    # Forward pass
+    # Forward pass - initial inference
     latent, policy_logits, value = network.initial_inference(board_tensor, aux_tensor)
     
     # Value loss (MSE)
-    value_loss = F.mse_loss(value, target_values)
+    value_loss = F.mse_loss(value, target_values_t)
     
-    # Policy loss (cross-entropy)
-    # Apply softmax to target and use KL divergence
+    # Policy loss (cross-entropy / KL divergence)
     policy_probs = F.softmax(policy_logits, dim=-1)
-    target_probs = target_policies / (target_policies.sum(dim=-1, keepdim=True) + 1e-8)
+    target_probs = target_policies_t / (target_policies_t.sum(dim=-1, keepdim=True) + 1e-8)
     policy_loss = F.kl_div(
         policy_probs.log(),
         target_probs,
         reduction='batchmean'
     )
     
-    # Dynamics loss (optional, for unrolling)
-    # For now, we skip this for simplicity
-    dynamics_loss = torch.tensor(0.0, device=device)
+    # =========================================================================
+    # PATCHED: DYNAMICS LOSS (this was the missing piece!)
+    # =========================================================================
     
+    # Get actual next state value (ground truth) - detached so we don't backprop through it
+    with torch.no_grad():
+        _, _, next_value_true = network.initial_inference(next_board_tensor, next_aux_tensor)
+    
+    # Predict next state using dynamics network
+    # Step 1: Get afterstate (after action, before dice)
+    afterstate = network.dynamics.afterstate(latent, actions_tensor)
+    
+    # Step 2: Apply chance (dice roll) to get predicted next state
+    next_latent_pred = network.dynamics.chance_transition(afterstate, dice_tensor)
+    
+    # Step 3: Get predicted value from predicted next state
+    _, next_value_pred = network.prediction(next_latent_pred)
+    
+    # Dynamics loss: predicted next-state value should match actual next-state value
+    # Only compute for non-terminal states
+    if has_next_tensor.any():
+        dynamics_loss = F.mse_loss(
+            next_value_pred[has_next_tensor], 
+            next_value_true[has_next_tensor]
+        )
+    else:
+        dynamics_loss = torch.tensor(0.0, device=device)
+    
+    # =========================================================================
+    # PATCHED: REWARD LOSS
+    # =========================================================================
+    
+    # Predict reward from afterstate
+    reward_pred = network.dynamics.predict_reward(afterstate)
+    reward_loss = F.mse_loss(reward_pred, rewards_tensor)
+    
+    # =========================================================================
     # Combined loss
+    # =========================================================================
+    
     total_loss = (config.value_loss_weight * value_loss + 
                   config.policy_loss_weight * policy_loss +
-                  config.dynamics_loss_weight * dynamics_loss)
+                  config.dynamics_loss_weight * dynamics_loss +
+                  config.reward_loss_weight * reward_loss)
     
     metrics = {
         'total_loss': total_loss.item(),
         'value_loss': value_loss.item(),
         'policy_loss': policy_loss.item(),
-        'dynamics_loss': dynamics_loss.item(),
+        'dynamics_loss': dynamics_loss.item() if isinstance(dynamics_loss, torch.Tensor) else dynamics_loss,
+        'reward_loss': reward_loss.item(),
         'mean_value': value.mean().item(),
-        'target_value_mean': target_values.mean().item()
+        'target_value_mean': target_values_t.mean().item()
     }
     
     return total_loss, metrics
@@ -435,7 +503,8 @@ class MuZeroTrainer:
             'total_loss': 0.0,
             'value_loss': 0.0,
             'policy_loss': 0.0,
-            'dynamics_loss': 0.0
+            'dynamics_loss': 0.0,
+            'reward_loss': 0.0  # ADDED
         }
         num_batches = 0
         
@@ -484,7 +553,7 @@ class MuZeroTrainer:
               save_path: str = 'agent4_checkpoint.pt') -> None:
         """Main training loop."""
         print("=" * 60)
-        print("Agent 4: Stochastic MuZero Training")
+        print("Agent 4: Stochastic MuZero Training (PATCHED)")
         print("=" * 60)
         print(f"Device: {self.device}")
         print(f"Games per iteration: {self.config.games_per_iteration}")
@@ -509,7 +578,7 @@ class MuZeroTrainer:
             
             iter_time = time.time() - iter_start
             
-            # Print progress
+            # Print progress (UPDATED to show dynamics and reward loss)
             if (i + 1) % 5 == 0 or i == 0:
                 print(f"\nIteration {i + 1}/{num_iterations} ({iter_time:.1f}s)")
                 print(f"  Games played: {self.games_played}, Buffer: {len(self.replay_buffer)}")
@@ -517,7 +586,9 @@ class MuZeroTrainer:
                 if 'total_loss' in train_stats:
                     print(f"  Loss: {train_stats['total_loss']:.4f} "
                           f"(V: {train_stats['value_loss']:.4f}, "
-                          f"P: {train_stats['policy_loss']:.4f})")
+                          f"P: {train_stats['policy_loss']:.4f}, "
+                          f"D: {train_stats['dynamics_loss']:.4f}, "
+                          f"R: {train_stats['reward_loss']:.4f})")
                     print(f"  Temperature: {train_stats.get('temperature', self.temperature):.3f}")
             
             # Checkpoint
@@ -615,3 +686,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
